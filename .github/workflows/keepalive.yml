@@ -25,3 +25,4 @@ jobs:
 
       - name: Wake up the app
         run: python keepalive.py https://pa226009-app-anve4appshpfzuxwahab3ox.streamlit.app/?token=RGy4H5dTjC94lwHGWTjRpA
+
