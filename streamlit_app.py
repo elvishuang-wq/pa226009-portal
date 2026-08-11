@@ -115,6 +115,7 @@ def main():
         view = view[mask]
 
     st.caption(f"共 {len(view)} 筆零件（全專案 {len(matrix)} 筆）")
+    st.caption(f"Ctrl+滾輪縮小網頁可看到更多欄位")
     display_view = view.drop(columns=[c for c in HIDDEN_COLS if c in view.columns])
 
     product_cols = [c for c in display_view.columns if c in product_info_map]
