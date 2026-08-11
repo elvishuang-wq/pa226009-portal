@@ -1,0 +1,9 @@
+# 憑證與敏感檔案，絕對不要 push 到 GitHub
+credentials.json
+token.pickle
+token_readonly.pickle
+service_account.json
+*.pyc
+__pycache__/
+sync_log.txt
+.streamlit/secrets.toml
