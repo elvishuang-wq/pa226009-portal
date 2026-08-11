@@ -1,0 +1,27 @@
+name: Keep Streamlit App Awake
+
+on:
+  schedule:
+    # 每 6 小時跑一次（UTC 時間），可依需求調整
+    - cron: '0 */6 * * *'
+  workflow_dispatch:  # 也可以在 GitHub 網頁上手動觸發
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Wake up the app
+        run: python keepalive.py https://your-app.streamlit.app
