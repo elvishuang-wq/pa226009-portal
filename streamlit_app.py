@@ -18,6 +18,9 @@ import pandas as pd
 import gspread
 from google.auth.transport.requests import Request
 from st_aggrid import AgGrid, GridUpdateMode
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Font, Alignment
 
 st.set_page_config(page_title="PA226009 專案進度", layout="wide")
 
@@ -84,6 +87,92 @@ def check_token(tokens_df, token):
     return True
 
 
+def build_excel(matrix_view, purchase_df, receipt_df, products_info_df, product_cols, product_info_map, summary_cols):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "零件總表"
+
+    header_font = Font(bold=True)
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    ws.merge_cells("A1:A5")
+    ws["A1"] = "Description"
+    ws.merge_cells("B1:B5")
+    ws["B1"] = "Specification"
+    for cell in ("A1", "B1"):
+        ws[cell].font = header_font
+        ws[cell].alignment = center
+
+    col_idx = 3  # C 欄開始放產品欄位
+    col_letter_map = {}
+    for code in product_cols:
+        info = product_info_map.get(code, {})
+        gas = str(info.get("氣體", "") or "")
+        ptype = str(info.get("Type", "") or "")
+        status = str(info.get("出貨狀態", "") or "")
+        qty = info.get("氣櫃數量", "")
+        col_letter = get_column_letter(col_idx)
+        ws[f"{col_letter}1"] = code
+        ws[f"{col_letter}2"] = gas
+        ws[f"{col_letter}3"] = ptype
+        ws[f"{col_letter}4"] = status
+        ws[f"{col_letter}5"] = f"Qty:{qty}"
+        for r in range(1, 6):
+            cell = ws[f"{col_letter}{r}"]
+            cell.font = header_font
+            cell.alignment = center
+        ws.column_dimensions[col_letter].width = 12
+        col_letter_map[code] = col_letter
+        col_idx += 1
+
+    summary_letters = {}
+    for c in summary_cols:
+        col_letter = get_column_letter(col_idx)
+        ws.merge_cells(f"{col_letter}1:{col_letter}5")
+        ws[f"{col_letter}1"] = c
+        ws[f"{col_letter}1"].font = header_font
+        ws[f"{col_letter}1"].alignment = center
+        ws.column_dimensions[col_letter].width = 14
+        summary_letters[c] = col_letter
+        col_idx += 1
+
+    row = 6
+    for _, r in matrix_view.iterrows():
+        ws[f"A{row}"] = r.get("Description", "")
+        ws[f"B{row}"] = r.get("Specification", "")
+        for code, col_letter in col_letter_map.items():
+            ws[f"{col_letter}{row}"] = r.get(code, 0)
+        for c, col_letter in summary_letters.items():
+            val = r.get(c, "")
+            ws[f"{col_letter}{row}"] = str(val) if val != "" else ""
+        row += 1
+
+    ws.freeze_panes = "C6"  # 固定左邊 Description/Specification + 上方多列表頭
+    ws.column_dimensions["A"].width = 32
+    ws.column_dimensions["B"].width = 20
+
+    def write_flat_sheet(sheet_name, df):
+        s = wb.create_sheet(sheet_name)
+        for j, col in enumerate(df.columns, start=1):
+            cell = s.cell(row=1, column=j, value=col)
+            cell.font = header_font
+        for i, row_data in enumerate(df.itertuples(index=False), start=2):
+            for j, val in enumerate(row_data, start=1):
+                s.cell(row=i, column=j, value=str(val) if pd.notna(val) else "")
+        for j in range(1, len(df.columns) + 1):
+            s.column_dimensions[get_column_letter(j)].width = 16
+        s.freeze_panes = "A2"
+
+    write_flat_sheet("採購明細", purchase_df)
+    write_flat_sheet("進貨明細", receipt_df)
+    write_flat_sheet("產品規格總覽", products_info_df)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
 def main():
     query_token = st.query_params.get("token", "")
 
@@ -115,10 +204,21 @@ def main():
         view = view[mask]
 
     st.caption(f"共 {len(view)} 筆零件（全專案 {len(matrix)} 筆）")
-    st.caption(f"Ctrl+滾輪縮小網頁可看到更多欄位")
     display_view = view.drop(columns=[c for c in HIDDEN_COLS if c in view.columns])
 
     product_cols = [c for c in display_view.columns if c in product_info_map]
+
+    excel_buf = build_excel(
+        display_view, purchase, receipt, products_info,
+        product_cols, product_info_map,
+        [c for c in SUMMARY_COLS if c in display_view.columns],
+    )
+    st.download_button(
+        label="📥 匯出 Excel",
+        data=excel_buf,
+        file_name="PA226009_零件備貨進度.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
     # 主表格：Description/Specification 固定在左邊，
     # 每個產品欄位用巢狀分組做出「氣體 / Type / 出貨狀態 / Q'ty / 品號」多層表頭，比照 Excel 呈現方式
@@ -157,11 +257,6 @@ def main():
         if c in display_view.columns:
             width = 95 if c in DATE_SUMMARY_COLS else 90
             column_defs.append({"field": c, "width": width, "pinned": "right"})
-
-    grid_options = {
-        "columnDefs": column_defs,
-        "defaultColDef": {"resizable": True, "sortable": True, "filter": False, "suppressMovable": True},
-    }
 
     grid_options = {
         "columnDefs": column_defs,
