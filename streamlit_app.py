@@ -87,6 +87,27 @@ def check_token(tokens_df, token):
     return True
 
 
+DATE_SUMMARY_COLS = {"最新採購日", "最新進貨日"}
+
+
+def clean_value(val):
+    """空值轉空白；整數值的浮點數轉回整數，避免 Excel 顯示 nan 或 133.0 這種格式"""
+    if val is None or val == "":
+        return ""
+    if isinstance(val, float):
+        if pd.isna(val):
+            return ""
+        if val.is_integer():
+            return int(val)
+        return val
+    try:
+        if pd.isna(val):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    return val
+
+
 def build_excel(matrix_view, purchase_df, receipt_df, products_info_df, product_cols, product_info_map, summary_cols):
     wb = Workbook()
     ws = wb.active
@@ -138,13 +159,13 @@ def build_excel(matrix_view, purchase_df, receipt_df, products_info_df, product_
 
     row = 6
     for _, r in matrix_view.iterrows():
-        ws[f"A{row}"] = r.get("Description", "")
-        ws[f"B{row}"] = r.get("Specification", "")
+        ws[f"A{row}"] = clean_value(r.get("Description", ""))
+        ws[f"B{row}"] = clean_value(r.get("Specification", ""))
         for code, col_letter in col_letter_map.items():
-            ws[f"{col_letter}{row}"] = r.get(code, 0)
+            ws[f"{col_letter}{row}"] = clean_value(r.get(code, 0))
         for c, col_letter in summary_letters.items():
             val = r.get(c, "")
-            ws[f"{col_letter}{row}"] = str(val) if val != "" else ""
+            ws[f"{col_letter}{row}"] = val if c in DATE_SUMMARY_COLS else clean_value(val)
         row += 1
 
     ws.freeze_panes = "C6"  # 固定左邊 Description/Specification + 上方多列表頭
@@ -158,7 +179,7 @@ def build_excel(matrix_view, purchase_df, receipt_df, products_info_df, product_
             cell.font = header_font
         for i, row_data in enumerate(df.itertuples(index=False), start=2):
             for j, val in enumerate(row_data, start=1):
-                s.cell(row=i, column=j, value=str(val) if pd.notna(val) else "")
+                s.cell(row=i, column=j, value=clean_value(val))
         for j in range(1, len(df.columns) + 1):
             s.column_dimensions[get_column_letter(j)].width = 16
         s.freeze_panes = "A2"
@@ -255,7 +276,7 @@ def main():
     DATE_SUMMARY_COLS = {"最新採購日", "最新進貨日"}
     for c in SUMMARY_COLS:
         if c in display_view.columns:
-            width = 95 if c in DATE_SUMMARY_COLS else 90
+            width = 120 if c in DATE_SUMMARY_COLS else 85
             column_defs.append({"field": c, "width": width, "pinned": "right"})
 
     grid_options = {
