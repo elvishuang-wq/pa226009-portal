@@ -117,14 +117,16 @@ def build_excel(matrix_view, purchase_df, receipt_df, products_info_df, product_
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
     ws.merge_cells("A1:A5")
-    ws["A1"] = "Description"
+    ws["A1"] = "零件品號"
     ws.merge_cells("B1:B5")
-    ws["B1"] = "Specification"
-    for cell in ("A1", "B1"):
+    ws["B1"] = "Description"
+    ws.merge_cells("C1:C5")
+    ws["C1"] = "Specification"
+    for cell in ("A1", "B1", "C1"):
         ws[cell].font = header_font
         ws[cell].alignment = center
 
-    col_idx = 3  # C 欄開始放產品欄位
+    col_idx = 4  # D 欄開始放產品欄位
     col_letter_map = {}
     for code in product_cols:
         info = product_info_map.get(code, {})
@@ -159,8 +161,9 @@ def build_excel(matrix_view, purchase_df, receipt_df, products_info_df, product_
 
     row = 6
     for _, r in matrix_view.iterrows():
-        ws[f"A{row}"] = clean_value(r.get("Description", ""))
-        ws[f"B{row}"] = clean_value(r.get("Specification", ""))
+        ws[f"A{row}"] = clean_value(r.get("零件品號", ""))
+        ws[f"B{row}"] = clean_value(r.get("Description", ""))
+        ws[f"C{row}"] = clean_value(r.get("Specification", ""))
         for code, col_letter in col_letter_map.items():
             ws[f"{col_letter}{row}"] = clean_value(r.get(code, 0))
         for c, col_letter in summary_letters.items():
@@ -168,9 +171,10 @@ def build_excel(matrix_view, purchase_df, receipt_df, products_info_df, product_
             ws[f"{col_letter}{row}"] = val if c in DATE_SUMMARY_COLS else clean_value(val)
         row += 1
 
-    ws.freeze_panes = "C6"  # 固定左邊 Description/Specification + 上方多列表頭
-    ws.column_dimensions["A"].width = 32
-    ws.column_dimensions["B"].width = 20
+    ws.freeze_panes = "D6"  # 固定左邊 零件品號/Description/Specification + 上方多列表頭
+    ws.column_dimensions["A"].width = 16
+    ws.column_dimensions["B"].width = 32
+    ws.column_dimensions["C"].width = 20
 
     def write_flat_sheet(sheet_name, df):
         s = wb.create_sheet(sheet_name)
@@ -246,9 +250,10 @@ def main():
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-    # 主表格：Description/Specification 固定在左邊，
+    # 主表格：零件品號/Description/Specification 固定在左邊，
     # 每個產品欄位用巢狀分組做出「氣體 / Type / 出貨狀態 / Q'ty / 品號」多層表頭，比照 Excel 呈現方式
     column_defs = [
+        {"field": "零件品號", "pinned": "left", "width": 140},
         {"field": "Description", "pinned": "left", "width": 220},
         {"field": "Specification", "pinned": "left", "width": 160},
     ]
