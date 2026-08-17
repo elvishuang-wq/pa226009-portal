@@ -211,6 +211,13 @@ def main():
         st.error("連結無效或已失效，請確認網址是否正確，或聯絡窗口取得最新連結。")
         st.stop()
 
+    if products_info.empty or "產品品號" not in products_info.columns or matrix.empty:
+        st.error(
+            "資料尚未同步完成或為空，請確認 sync_PA226009.py -> sync_to_gsheet.py "
+            "是否已依序執行成功，且 Google Sheet 各分頁有正確資料後再重新整理。"
+        )
+        st.stop()
+
     st.title("PA226009 專案 - 零件備貨進度")
 
     HIDDEN_COLS = ["Rev", "Item", "Remarks"]  # 零件品號保留在資料裡（不建欄位顯示），供點選列時識別用
