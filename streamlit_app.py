@@ -108,6 +108,12 @@ def clean_value(val):
     return val
 
 
+def safe_str(val):
+    """把值轉成字串，NaN/None 一律轉成空字串，避免出現字面上的 'nan'"""
+    cleaned = clean_value(val)
+    return "" if cleaned == "" else str(cleaned)
+
+
 def build_excel(matrix_view, purchase_df, receipt_df, products_info_df, product_cols, product_info_map, summary_cols):
     wb = Workbook()
     ws = wb.active
@@ -130,10 +136,10 @@ def build_excel(matrix_view, purchase_df, receipt_df, products_info_df, product_
     col_letter_map = {}
     for code in product_cols:
         info = product_info_map.get(code, {})
-        gas = str(info.get("氣體", "") or "")
-        ptype = str(info.get("Type", "") or "")
-        status = str(info.get("出貨狀態", "") or "")
-        qty = info.get("氣櫃數量", "")
+        gas = safe_str(info.get("氣體", ""))
+        ptype = safe_str(info.get("Type", ""))
+        status = safe_str(info.get("出貨狀態", ""))
+        qty = clean_value(info.get("氣櫃數量", ""))
         col_letter = get_column_letter(col_idx)
         ws[f"{col_letter}1"] = code
         ws[f"{col_letter}2"] = gas
@@ -267,10 +273,10 @@ def main():
 
     for code in product_cols:
         info = product_info_map.get(code, {})
-        gas = str(info.get("氣體", "") or "")
-        ptype = str(info.get("Type", "") or "")
-        status = str(info.get("出貨狀態", "") or "")
-        qty = info.get("氣櫃數量", "")
+        gas = safe_str(info.get("氣體", ""))
+        ptype = safe_str(info.get("Type", ""))
+        status = safe_str(info.get("出貨狀態", ""))
+        qty = clean_value(info.get("氣櫃數量", ""))
         column_defs.append({
             "headerName": code,
             "children": [{
