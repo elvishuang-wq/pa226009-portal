@@ -226,7 +226,7 @@ def main():
 
     st.title("PA226009 專案 - 零件備貨進度")
 
-    HIDDEN_COLS = ["Rev", "Item", "Remarks"]  # 零件品號保留在資料裡（不建欄位顯示），供點選列時識別用
+    HIDDEN_COLS = []  # Product_BOM 改用 ERP 資料後已無 Rev/Item/Remarks 欄位，這裡保留空清單以防未來又要隱藏欄位
     SUMMARY_COLS = [
         "總需求量",
         # "累計採購數量",  # 2026 客戶要求先不顯示，若要恢復把這行取消註解即可
